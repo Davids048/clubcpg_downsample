@@ -12,7 +12,7 @@ from multiprocessing import Pool, cpu_count
 from dask.distributed import LocalCluster, Client
 import multiprocessing
 from typing import Callable, Tuple, Union
-
+from datetime import date
 
 
 start_time = time.time()
@@ -69,7 +69,7 @@ def bin_resample(bin_name, df: pd.DataFrame):
     # if cluster has one epi-allele, can skip all things
     # print("progress?", df["V1"].copy().reset_index(drop=True)[0])
     global progress
-    print(progress)
+    # print(progress)
     progress +=1
     # print(df["bin_id"])
     # print(df["lc_sum"])
@@ -252,12 +252,14 @@ def bin_resample(bin_name, df: pd.DataFrame):
         return combined_sum
 
 
-def downsampe_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str, clubcpg_path_B: str):
+def downsampel_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str, clubcpg_path_B: str, sampleA:str, sampleB:str):
     """
     Process the input class-patterns, lowest-common-read depth, clubcpg output for bin_resample function;
     :param patterns_path: path for the class label file
     :param lc_reads_path: path for the file storing lowest common read depth of each bin
     :param clubcpg_path: path for file that stores clubcpg clustering output
+    :param sampleA: which sample in cluster output A to choose from, allowed inputs are either A or B
+    :param sampleB: which sample in cluster output B to choose from, allowed inputs are either A or B
     :return: the final result after resampling
     """
     patterns = pd.read_csv(patterns_path)
@@ -284,9 +286,11 @@ def downsampe_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str, 
         club = cluster_output_separate_AB(club)
         club = cluster_output_add_start_end(cluster_df=club)
         club = cluster_output_replace_label(cluster_df=club, patterns=patterns)
-        club[
-            "origin"] = file_idx  # this column denote where the file is from 1 means the file from -A input file, 2 means
-        # from -B file. In the current analysis, we are looking for male, p35 vs p12, so -A is p35, -B is p12 (or vice versa)
+        club["origin"] = file_idx
+        # this column denote where the file is from， 1 means the file from -A input file, 2 means
+        # from -B file. In the current analysis, we are looking for male, p35 vs p12, so -A is p35, -B is p12
+        # (or vice versa)
+        # in each dataframe, male is sample A, so we take the A colomn, (if want female, use B coloumn)
         file_idx += 1
         # print("selected", club.shape)
         club_combined = pd.concat([club_combined, club])
@@ -296,11 +300,13 @@ def downsampe_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str, 
     #   i.e. doing male, so select all bins with
     club_a = club_combined[club_combined["origin"] == 1]
     club_a = club_a[["bin_id", "class_label", "A"]]
+    # in each dataframe, male is sample A, so we take the A column, (if want female, use B column)
+    club_a = club_a[["bin_id", "class_label", sampleA]]
     club_a = club_a.drop_duplicates()
     # club_a.rename(columns={"origin":"A"})
     club_b = club_combined[club_combined["origin"] == 2]
-    club_b = club_b[["bin_id", "class_label", "A"]]
-    club_b = club_b.rename(columns={"A": "B"})
+    club_b = club_b[["bin_id", "class_label", sampleB]]
+    club_b = club_b.rename(columns={sampleB: "B"})  # in the new df, it will be the second thing to compare
     club_b = club_b.drop_duplicates()
     # print(club_b)
     # club_b.rename(columns={"origin": "B"})
@@ -313,7 +319,7 @@ def downsampe_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str, 
     return club_index, club_merge
 
 
-def downsampe_prep_single_file(patterns_path: str, lc_reads_path: str, clubcpg_path: str):
+def downsampe_prep_single_file(patterns_path: str, lc_reads_path: str, clubcpg_path: str): # -> clubidx, clubcpg
     """
     Process the input class-patterns, lowest-common-read depth, clubcpg output for bin_resample function;
     :param patterns_path: path for the class label file
@@ -325,8 +331,6 @@ def downsampe_prep_single_file(patterns_path: str, lc_reads_path: str, clubcpg_p
     lc_reads = pd.read_csv(lc_reads_path)
     # print(lc_reads)
     clubcpg = pd.read_csv(clubcpg_path)
-
-    club_combined = pd.DataFrame
 
     # align bin naming: done in method already
     # clubcpg.rename(columns={"bin": "bin_id"}, inplace=True)
@@ -342,7 +346,8 @@ def downsampe_prep_single_file(patterns_path: str, lc_reads_path: str, clubcpg_p
     clubcpg = cluster_output_replace_label(cluster_df=clubcpg, patterns=patterns)
     clubcpg = cluster_output_add_lcreads(cluster_df=clubcpg, lc_reads=lc_reads)
     clubcpg = cluster_output_add_v1(cluster_df=clubcpg)
-    return clubcpg
+    club_idx = create_idx_file(clubcpg)
+    return club_idx, clubcpg
 
 
 def create_idx_file(clubcpg: pd.DataFrame):
@@ -354,7 +359,6 @@ def create_idx_file(clubcpg: pd.DataFrame):
     club_idx = clubcpg[["bin_id", "chr", "start", "end", "cpg_number", "class_label", "methylation", "cpg_pattern"]]
     club_idx = club_idx.drop_duplicates()
     return club_idx
-
 
 def sample_each_bin(small_group1):  # TODO: or groupby?
     res_df1 = small_group1.apply(lambda x: bin_resample(x, 100))
@@ -376,7 +380,7 @@ def run_downsample3(clubcpg_df: pd.DataFrame,club_idx:pd.DataFrame):
 
 def groupby_parallel(groupby_df: pd.core.groupby.DataFrameGroupBy,
                      func,
-                     num_cpus: int=multiprocessing.cpu_count() - 1,
+                     num_cpus: int,
                      logger: Callable[[str], None]=print) -> pd.DataFrame:
     """Performs a Pandas groupby operation in parallel.
     Example usage:
@@ -393,6 +397,7 @@ def groupby_parallel(groupby_df: pd.core.groupby.DataFrameGroupBy,
         result = pool.starmap_async(func, [(name,group,) for name, group in groupby_df])
         cycler = itertools.cycle('\|/―')
         while not result.ready():
+            # print(queue.qsize()/len(groupby_df))
             logger("Percent complete: {:.0%} {}".format(queue.qsize()/len(groupby_df), next(cycler)), end="\r")
             time.sleep(0.01)
         got = result.get()
@@ -404,11 +409,9 @@ def run_downsample(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
     useful_part = clubcpg_df[["bin_id", "class_label", "A", "B", "lc_sum", "V1"]]
     useful_part["bin_id_backup"] = useful_part["bin_id"]
     bin_groups = useful_part.groupby(by="bin_id_backup", sort=False)
-    res = groupby_parallel(bin_groups, bin_resample)
+    res = groupby_parallel(bin_groups, bin_resample, num_cpus=int(args.ncore))
     print("shape",res)
-    print(res.columns)
     res_df = club_idx.merge(res, how="right", on=["bin_id", "class_label"])
-    print(res_df)
     return res_df
 
 def run_downsample4(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
@@ -438,39 +441,6 @@ def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
     # print(useful_part)
     # DONE: after testing, get rid of the two opts
     bin_groups = useful_part.groupby(by="bin_id", sort=False)
-    # print("length",len(bin_groups.groups))
-
-    # try to use pool
-    # idx = 0
-    # # split bin_groups into smaller groups
-    # for df_name, small_group in bin_groups:
-    #     print(small_group)
-    #     print("group idx", idx)
-    #     idx += 1
-    #     pool = Pool.Pool(processes=2)
-    #     results = pool.apply_async(sample_each_bin, small_group)
-    #
-    #     if idx == 100:
-    #         while not results.ready():
-    #             time.sleep(0.0001)
-    #         print("ready")
-    #         idx = 0
-    #
-    #         if results.successful():
-    #             print("in")
-    #             results = results.get()
-    #             final_res.extend(results)
-    #             print("out")
-    #         print("added once")
-    #
-    # output_df1 = pd.DataFrame()
-    # for small_df in final_res:
-    #     output_df1 = pd.concat(small_df, output_df1)
-
-    # print(bin_groups)
-    # print(bin_groups.groups)
-    # two_bin = bin_groups.get_group("chr1_119077300")
-    # print(two_bin)
     output_df1 = bin_groups.apply(lambda x: bin_resample(x))
     print(output_df1)
     # print(output_df)
@@ -500,7 +470,7 @@ def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
 # # print(bin_resample(bin_single_allele, 2))
 ### TEST END ###
 ### TEST 2 ###
-## TEST 3
+## TEST 3 sample file
 # if __name__ =="__main__":
 #     pattern_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/cluster_patterns.csv"
 #     lc_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/lowest common read depths.csv"
@@ -518,49 +488,60 @@ def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
 
 
 ### Test full file ###
-if __name__ == "__main__":
-    pattern_path = "/Users/david/Sphere_files/Downsample replicate/output_csv/cluster_patterns.csv"
-    lc_path = "/Users/david/Sphere_files/Downsample replicate/output_csv/lowest common read depths - neuron - chr19.csv"
-    A = "/Users/david/Sphere_files/Downsample replicate/Clubcpg_re_run_July2021/sex_p35_neuron/male_p35_neuron.bam.chr19_cluster_results.csv"
-    B = "/Users/david/Sphere_files/Downsample replicate/Clubcpg_re_run_July2021/sex_p12_neuron/male_p12_neuron.bam.chr19_cluster_results.csv"
-    club_idx, clubcpg = downsampe_prep(pattern_path, lc_path, A, B)
-    print("finish prep")
-    print(clubcpg.shape)
-    # print("clubcpg",clubcpg)
-    output_df = run_downsample(clubcpg, club_idx)
-    print("finish running")
-    print("output", output_df)
-    output_df.to_csv("/Users/david/" + "output.csv")
-    print("time:", time.time() - start_time, "s")
+# if __name__ == "__main__":
+#     pattern_path = "/Users/david/Sphere_files/Downsample replicate/output_csv/cluster_patterns.csv"
+#     lc_path = "/Users/david/Sphere_files/Downsample replicate/output_csv/lowest common read depths - neuron - chr19.csv"
+#     A = "/Users/david/Sphere_files/Downsample replicate/Clubcpg_re_run_July2021/sex_p35_neuron/male_p35_neuron.bam.chr19_cluster_results.csv"
+#     B = "/Users/david/Sphere_files/Downsample replicate/Clubcpg_re_run_July2021/sex_p12_neuron/male_p12_neuron.bam.chr19_cluster_results.csv"
+#     club_idx, clubcpg = downsampe_prep(pattern_path, lc_path, A, B)
+#     print("finish prep")
+#     print(clubcpg.shape)
+#     # print("clubcpg",clubcpg)
+#     output_df = run_downsample(clubcpg, club_idx)
+#     print("finish running")
+#     print("output", output_df)
+#     output_df.to_csv("/Users/david/" + "output.csv")
+#     print("time:", time.time() - start_time, "s")
 
 ### Test full file end ###
 #
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("pattern_path", help="absolute path to new class labels", default=None)
-#     parser.add_argument("lc_path",
-#                         help="absolute path to minimum read depth at each bin ", default=None)
-#     # parser.add_argument("-chr", "--chromosome", help="Optional, perform only on one chromosome. ")
-#     parser.add_argument("-A", help="absolute path to the first clubcpg cluster output", default=None)
-#     parser.add_argument("-B", help="absolute path to the second clubcpg cluster output", default=None)
-#
-#     parser.add_argument("-chr", "--chromosome", help="Optional, perform only on one chromosome. ")
-#     parser.add_argument("-o", "--output", help="folder to save imputed coverage data", default=None)
-#     args = parser.parse_args()
-#     # Set output dir
-#     if not args.output:
-#         output_folder = os.path.dirname(args.lc_path)
-#     else:
-#         output_folder = args.output
-#     try:
-#         os.mkdir(output_folder)
-#     except FileExistsError:
-#         print("Output folder already exists... no need to create it...")
-#
-#     club_idx, clubcpg = downsampe_prep(args.pattern_path, args.lc_path, args.A, args.B)
-#     # TODO: test prep
-#     # club_idx = create_idx_file(clubcpg)
-#     output_df = run_downsample(clubcpg, club_idx)
-#     output_df.to_csv(output_folder + "output.csv")
-#     print(output_df)
-#     print("time:", time.process_time() - start_time, "s")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("pattern_path", help="absolute path to new class labels", default=None)
+    parser.add_argument("lc_path", help="absolute path to minimum read depth at each bin ", default=None)
+    parser.add_argument("-A", help="absolute path to the first clubcpg cluster output", default=None)
+    parser.add_argument("-B", help="absolute path to the second clubcpg cluster output", default=None)
+    parser.add_argument("-sampleA", "--sampleA",
+                        help=" when using 2 file mode, specify which sample in cluster output A to use, allowed inputs are A or B", default = None)
+    parser.add_argument("-sampleB", "--sampleB",
+                        help=" when using 2 file mode, specify which sample in cluster output A to use, allowed inputs are A or B", default=None)
+    parser.add_argument("-chr", "--chromosome", help="Optional, perform only on one chromosome. ",default=None)
+    parser.add_argument("-ncore","--ncore", help="the number of cores the downsampling can use", default=None)
+    parser.add_argument("-o", "--output", help="folder to save imputed coverage data", default=None)
+    parser.add_argument("-name", "--name", help="desired output file name", default="/output1.csv")
+    args = parser.parse_args()
+    # TODO: the -chr argument is not the used yet, think of how to use it.
+    # Set output dir
+    ncore = args.ncore
+    if not args.output:
+        output_folder = os.path.dirname(args.lc_path)
+    else:
+        output_folder = args.output
+    try:
+        os.mkdir(output_folder)
+    except FileExistsError:
+        print("Output folder already exists... no need to create it...")
+
+    if not args.B: # if single clubcpg output:
+        club_idx, clubcpg = downsampe_prep_single_file(args.pattern_path, args.lc_path, args.A)
+        output_df = run_downsample(clubcpg,club_idx)
+        output_df.to_csv(output_folder + args.name)
+        print("time:", time.time() - start_time, "s")
+    else:
+        club_idx, clubcpg = downsampel_prep(args.pattern_path, args.lc_path, args.A, args.B, args.sampleA,args.sampleB)
+        # TODO: test prep
+        output_df = run_downsample(clubcpg, club_idx)
+        # os.mkdir(output_folder + str(date.today()))
+        output_df.to_csv(output_folder + args.name)
+        # print(output_df)
+        print("time:", time.time() - start_time, "s")
