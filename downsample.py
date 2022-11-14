@@ -399,7 +399,7 @@ def groupby_parallel(groupby_df: pd.core.groupby.DataFrameGroupBy,
         cycler = itertools.cycle('\|/―')
         while not result.ready():
             # print(queue.qsize()/len(groupby_df))
-            logger("Percent complete: {:.0%} {}".format(queue.qsize()/len(groupby_df), next(cycler)), end="\r")
+            # logger("Percent complete: {:.0%} {}".format(queue.qsize()/len(groupby_df), next(cycler)), end="\r")
             time.sleep(0.01)
         got = result.get()
 
