@@ -299,9 +299,10 @@ def downsampel_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str,
     ## Fixme: assume we are doing male, (will need to generalize later),
     #   i.e. doing male, so select all bins with
     club_a = club_combined[club_combined["origin"] == 1]
-    club_a = club_a[["bin_id", "class_label", "A"]]
+    # club_a = club_a[["bin_id", "class_label", "A"]]
     # in each dataframe, male is sample A, so we take the A column, (if want female, use B column)
     club_a = club_a[["bin_id", "class_label", sampleA]]
+    club_a = club_a.rename(columns={sampleA: "B"})
     club_a = club_a.drop_duplicates()
     # club_a.rename(columns={"origin":"A"})
     club_b = club_combined[club_combined["origin"] == 2]
