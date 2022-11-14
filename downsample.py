@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import time
 import scipy as sp
-from sp import stats
+from scipy import stats
 from modify_cluster_output_file import *
 from multiprocessing import Pool, cpu_count
 # from dask.distributed import LocalCluster, Client
