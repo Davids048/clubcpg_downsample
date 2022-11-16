@@ -60,13 +60,15 @@ def fisher_on_df(combined_bins: pd.DataFrame, read_target: int):
 
 def bin_resample(bin_name, df: pd.DataFrame):
     # original header: def bin_resample(df: pd.DataFrame, n: int):
-    n = 100
     """
     resample for each bin
     :param df: a dataframe of methylation information at a bin. if there are n epialleles, there should be n rows.
     :param n: the number of resampling to do
     :return: a new dataframe with the same information as the final csv for down sampling.
     """
+    n = 100
+    # TODO: number of resampling is fixed right now, should I add option to change?
+    # fixme:
     # if cluster has one epi-allele, can skip all things
     # print("progress?", df["V1"].copy().reset_index(drop=True)[0])
     global progress
@@ -240,15 +242,10 @@ def bin_resample(bin_name, df: pd.DataFrame):
         combined_sum["delta_sd"] = ((grouped_df["A"].std() + grouped_df["B"].std()) / read_target) * 100
         combined_sum["delta_sd"] = ((grouped_df["A"].std() + grouped_df["B"].std()) / read_target) * 100
         combined_sum["p_val_mean"] = grouped_df["p_val"].mean()
+        combined_sum["is_sig"] = 0 # new criteria of is_sig, different from Dr.Mackay's approach, this one uses median of pvals
+        combined_sum.loc[combined_sum["p_val_median"] > (-1) * math.log10(0.05), 'is_sig'] = 1
         # print(grouped_df["is_sig"].describe())
         combined_sum["sig_pct"] = grouped_df["is_sig"].mean() * 100
-
-        #
-        #
-        # print("summary norm mean\n", combined_sum["delta_mean"])
-        # print("summary\n", combined_sum)
-        # print(combined_bins.groupby(["class_label"], as_index=True)["B"].describe())
-        # print("combinedsum\n", combined_bins)
         combined_sum["bin_id"] = bin_name
         return combined_sum
 
@@ -472,21 +469,21 @@ def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
 # # print(bin_resample(bin_single_allele, 2))
 ### TEST END ###
 ### TEST 2 ###
-## TEST 3 sample file
-# if __name__ =="__main__":
-#     pattern_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/cluster_patterns.csv"
-#     lc_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/lowest common read depths.csv"
-#     clubcpg_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/raw_data/sample clubcpg output.csv"
-#     clubcpg = downsampe_prep_single_file(pattern_path, lc_path, clubcpg_path)
-#     Size = clubcpg.shape[0]
-#     print("finished prep")
-#     club_idx = create_idx_file(clubcpg)
-#     print(club_idx.columns)
-#     print("finished idx")
-#     output_df = run_downsample(clubcpg,club_idx)
-#     print(output_df)
-#     print("time:", time.time()- start_time, "s")
-### TEST 3 END ###
+# TEST 3 sample file
+if __name__ =="__main__":
+    pattern_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/cluster_patterns.csv"
+    lc_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/lowest common read depths.csv"
+    clubcpg_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/raw_data/sample clubcpg output.csv"
+    clubcpg = downsampe_prep_single_file(pattern_path, lc_path, clubcpg_path)
+    Size = clubcpg.shape[0]
+    print("finished prep")
+    club_idx = create_idx_file(clubcpg)
+    print(club_idx.columns)
+    print("finished idx")
+    output_df = run_downsample(clubcpg,club_idx)
+    print(output_df)
+    print("time:", time.time()- start_time, "s")
+## TEST 3 END ###
 
 
 ### Test full file ###
