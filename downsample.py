@@ -54,7 +54,6 @@ def fisher_on_df(combined_bins: pd.DataFrame, read_target: int):
         alternative='two-sided')[1], axis=1)
     fisher_df["p_val"] = fisher_df.apply(lambda row: (-1) * math.log10(row["p_val"]), axis=1)
     # print(fisher_df)
-    # TODO: fisher is not right, modify
     return fisher_df
 
 
@@ -68,7 +67,6 @@ def bin_resample(bin_name, df: pd.DataFrame):
     """
     n = 100
     # TODO: number of resampling is fixed right now, should I add option to change?
-    # fixme:
     # if cluster has one epi-allele, can skip all things
     # print("progress?", df["V1"].copy().reset_index(drop=True)[0])
     global progress
@@ -94,7 +92,9 @@ def bin_resample(bin_name, df: pd.DataFrame):
                 "A_norm_sd": [0],
                 "B_norm_sd": [0],
                 "p_val_mean": [1],
-                "sig_pct": [0]
+                "p_val_median":[1],
+                "sig_pct": [0],
+                "is_sig":[0]
                 }
         res =  pd.DataFrame(data)
         res["bin_id"] = bin_name
@@ -294,8 +294,6 @@ def downsampel_prep(patterns_path: str, lc_reads_path: str, clubcpg_path_A: str,
         club_combined = pd.concat([club_combined, club])
 
     club_index = create_idx_file(club_combined)
-    ## Fixme: assume we are doing male, (will need to generalize later),
-    #   i.e. doing male, so select all bins with
     club_a = club_combined[club_combined["origin"] == 1]
     # club_a = club_a[["bin_id", "class_label", "A"]]
     # in each dataframe, male is sample A, so we take the A column, (if want female, use B column)
