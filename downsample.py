@@ -242,6 +242,7 @@ def bin_resample(bin_name, df: pd.DataFrame):
         combined_sum["delta_sd"] = ((grouped_df["A"].std() + grouped_df["B"].std()) / read_target) * 100
         combined_sum["delta_sd"] = ((grouped_df["A"].std() + grouped_df["B"].std()) / read_target) * 100
         combined_sum["p_val_mean"] = grouped_df["p_val"].mean()
+        combined_sum["p_val_median"] = grouped_df["p_val"].median()
         combined_sum["is_sig"] = 0 # new criteria of is_sig, different from Dr.Mackay's approach, this one uses median of pvals
         combined_sum.loc[combined_sum["p_val_median"] > (-1) * math.log10(0.05), 'is_sig'] = 1
         # print(grouped_df["is_sig"].describe())
