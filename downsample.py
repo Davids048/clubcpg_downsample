@@ -470,20 +470,20 @@ def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
 ### TEST END ###
 ### TEST 2 ###
 # TEST 3 sample file
-if __name__ =="__main__":
-    pattern_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/cluster_patterns.csv"
-    lc_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/lowest common read depths.csv"
-    clubcpg_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/raw_data/sample clubcpg output.csv"
-    clubcpg = downsampe_prep_single_file(pattern_path, lc_path, clubcpg_path)
-    Size = clubcpg.shape[0]
-    print("finished prep")
-    club_idx = create_idx_file(clubcpg)
-    print(club_idx.columns)
-    print("finished idx")
-    output_df = run_downsample(clubcpg,club_idx)
-    print(output_df)
-    print("time:", time.time()- start_time, "s")
-## TEST 3 END ###
+# if __name__ =="__main__":
+#     pattern_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/cluster_patterns.csv"
+#     lc_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/lowest common read depths.csv"
+#     clubcpg_path = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/raw_data/sample clubcpg output.csv"
+#     clubcpg = downsampe_prep_single_file(pattern_path, lc_path, clubcpg_path)
+#     Size = clubcpg.shape[0]
+#     print("finished prep")
+#     club_idx = create_idx_file(clubcpg)
+#     print(club_idx.columns)
+#     print("finished idx")
+#     output_df = run_downsample(clubcpg,club_idx)
+#     print(output_df)
+#     print("time:", time.time()- start_time, "s")
+# ## TEST 3 END ###
 
 
 ### Test full file ###
