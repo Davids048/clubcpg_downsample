@@ -1,5 +1,6 @@
 import itertools
 import math
+import statistics
 from functools import partial
 
 # import dask.dataframe as dd
@@ -14,41 +15,34 @@ from multiprocessing import Pool, cpu_count
 import multiprocessing
 from typing import Callable, Tuple, Union
 from datetime import date
+import matplotlib.pyplot as plt
+from make_plot import make_plot
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.image as mpimg
+from fpdf import FPDF
 
-
+count = 0
 start_time = time.time()
 print("start",start_time)
 progress = 1
+
+FIGS =[]
+
 def fisher_on_df(combined_bins: pd.DataFrame, read_target: int):
     """
     given the combined bins (pivot_longer applied), return the -log p val from each row, representing if there
     is a significant difference between library A and library B
     :param combined_bins: combined bins (pivot_longer applied),
     :param read_target: lc_read depth at that bin. / amount of labels that got chosen in each sampling iteration.
-    :return: a df, with p values of each row.
+    :return: a df, with p values ( log 10) of each row.
     """
     # TODO: implement this
     fisher_df = pd.DataFrame(columns=["A", "B"])
     fisher_df["A"] = combined_bins["A"]
     # fisher_df["read_target"] = read_target
     fisher_df["B"] = combined_bins["B"]
-    # CHECK: if this is the correct fisher val, and if it is the same as r script
-    # row = fisher_df.iloc[9]
-    # print("this array\n", np.array([[row["A"], row["B"]], row["read_target"]], dtype=object))
-    # print("pval\n",sp.stats.fisher_exact(np.array([[7,12],[14,5]], dtype=object),alternative='two-sided')[1])
-    # CheckEnd
     # Fixed:  error: fisher_df["p_val"] = fisher_df.apply(lambda row: sp.stats.fisher_exact(
     #  raise ValueError("All values in `table` must be nonnegative.")
-    # ValueError: All values in `table` must be nonnegative.
-    ######debug#####
-    # print(fisher_df)
-    # for row_idx in  range(fisher_df.shape[0]):
-    #     x = fisher_df.loc[row_idx]
-    #     print(x)
-    #     print("target",read_target)
-    #     print(np.array([[x["A"], read_target - x["A"]], [x["B"], read_target - x["B"]]]))
-
-    #####debugend#####
     fisher_df["p_val"] = fisher_df.apply(lambda row: sp.stats.fisher_exact(
         np.array([[row["A"], read_target - row["A"]], [row["B"], read_target - row["B"]]], dtype=object),
         alternative='two-sided')[1], axis=1)
@@ -72,10 +66,6 @@ def bin_resample(bin_name, df: pd.DataFrame):
     global progress
     # print(progress)
     progress +=1
-    # print(df["bin_id"])
-    # print(df["lc_sum"])
-    # print(df["A"])
-    # print(df["B"])
     # print(PROGRESS/Size*100)
     # PROGRESS +=1
     if df.shape[0] == 1:
@@ -134,17 +124,7 @@ def bin_resample(bin_name, df: pd.DataFrame):
             for sample in lst_sampls:
                 counts = pd.Categorical(sample, categories=labels, ordered=True).value_counts()
                 table = pd.concat([table, counts], axis=1)
-            # # cat = pd.Categorical(lst_sampls[1], categories=[i for i in range(class_max+1)], ordered=True)
-            # cat = pd.Categorical(lst_sampls[1], categories=labels, ordered=True)
-            # counts = cat.value_counts()
-            # print("counts\n", counts)
-            # table = pd.concat([table,counts], axis = 1)
-            #
-            # cat = pd.Categorical(lst_sampls[4], categories=labels, ordered=True)
-            # counts = cat.value_counts()
-            # print("counts\n", counts)
-            # table = pd.concat([table, counts], axis=1)
-            # print(table.T.reset_index(drop=True))
+
             table = table.T.reset_index(drop=True)
             table.index += 1
             table["iteration"] = table.index
@@ -221,13 +201,158 @@ def bin_resample(bin_name, df: pd.DataFrame):
         # combined_bins["is_sig"][combined_bins["p_val"] > (-1)*math.log10(0.05)] = 1
         combined_bins.loc[combined_bins["p_val"] > (-1) * math.log10(0.05), 'is_sig'] = 1
         # print(combined_bins)
+        # print(bin_name,combined_bins["p_val"])
+
 
         # summarize stats
         combined_sum = pd.DataFrame()
         combined_sum["class_label"] = labels
         combined_sum.index = labels
         grouped_df = combined_bins.groupby(["class_label"], as_index=True)
-        # CHECK if calculation is right
+
+
+        # draw distribution of p-val for each class label in this bin_name
+
+        # figs = []
+        # with PdfPages( "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot.pdf") as pdf:
+        # for key, item in grouped_df:
+        #     global count
+        #     count += 1
+        #     if count<= 30:
+        #         print(grouped_df.get_group(key)["p_val"])
+        #         # draw yor plot
+        #         # fig = make_plot(bin_name,class_label=key, p_vals=grouped_df.get_group(key)["p_val"].tolist())
+        #
+        #         p_vals = grouped_df.get_group(key)["p_val"].tolist()
+        #         mean_check = statistics.mean(p_vals)
+        #         mean = grouped_df.get_group(key)["p_val"].mean()
+        #         std = grouped_df.get_group(key)["p_val"].median()
+        #         median = grouped_df.get_group(key)["p_val"].std()
+        #
+        #         fig = plt.figure(figsize=(10, 10))
+        #         plt.hist(p_vals, bins=20)
+        #         plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
+        #         plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean + std))
+        #         plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
+        #         plt.axvline(median, color="r", linestyle="dashed", label='{0:.4f}'.format(median))
+        #         plt.xticks(np.arange(-0.5, 3.5, 0.5))
+        #         plt.legend(loc='upper right')
+        #
+        #         plt.gca().set(title="bin: " + bin_name + " class_label: " + str(key), xlabel="p_val",
+        #                       ylabel='Frequency')
+        #         figs.append(fig)
+        #         plt.close()
+
+        # with PdfPages("/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot1.pdf") as pdf:
+        #     for i in range(10):
+        #         p_vals = [1.9959527597159825, 1.7183014331322182, 0.9213498354804726, 1.7183014331322182,
+        #                  1.7183014331322182, 1.4461163290995296,
+        #                  1.1801316432262405, 0.9213498354804726, 1.9959527597159825, 1.7183014331322182,
+        #                  1.4461163290995296, 0.6711850122116552,
+        #                  1.4461163290995296, 0.9213498354804726, 1.4461163290995296, 1.9959527597159825,
+        #                  2.278518516821683, 1.7183014331322182,
+        #                  1.4461163290995296, 1.4461163290995296, 1.7183014331322182, 1.4461163290995296,
+        #                  2.8567929263111465, 1.9959527597159825,
+        #                  2.5655753326769597, 2.278518516821683, 0.9213498354804726, 1.9959527597159825,
+        #                  2.278518516821683, 2.5655753326769597,
+        #                  2.8567929263111465, 1.9959527597159825, 1.4461163290995296, 1.4461163290995296,
+        #                  2.278518516821683, 1.4461163290995296,
+        #                  1.7183014331322182, 1.4461163290995296, 1.1801316432262405, 1.7183014331322182,
+        #                  1.1801316432262405, 1.1801316432262405,
+        #                  2.5655753326769597, 2.278518516821683, 1.9959527597159825, 1.9959527597159825,
+        #                  1.1801316432262405, 1.4461163290995296,
+        #                  1.4461163290995296, 1.9959527597159825, 1.7183014331322182, 2.5655753326769597,
+        #                  1.9959527597159825, 1.7183014331322182,
+        #                  1.7183014331322182, 1.9959527597159825, 1.9959527597159825, 1.7183014331322182,
+        #                  1.4461163290995296, 1.4461163290995296,
+        #                  1.1801316432262405, 1.7183014331322182, 1.7183014331322182, 1.9959527597159825,
+        #                  2.8567929263111465, 2.278518516821683,
+        #                  0.9213498354804726, 1.4461163290995296, 1.1801316432262405, 3.151910196397295,
+        #                  1.4461163290995296, 1.1801316432262405,
+        #                  1.4461163290995296, 1.4461163290995296, 1.7183014331322182, 1.9959527597159825,
+        #                  0.6711850122116552, 1.9959527597159825,
+        #                  1.4461163290995296, 1.7183014331322182, 1.4461163290995296, 1.9959527597159825,
+        #                  2.278518516821683, 1.9959527597159825,
+        #                  2.5655753326769597, 1.4461163290995296, 0.9213498354804726, 1.7183014331322182,
+        #                  0.9213498354804726, 1.7183014331322182,
+        #                  2.278518516821683, 0.6711850122116552, 1.9959527597159825, 1.9959527597159825,
+        #                  1.4461163290995296, 1.7183014331322182,
+        #                  1.9959527597159825, 1.1801316432262405, 1.1801316432262405, 1.4461163290995296]
+        #         mean = statistics.mean(p_vals)
+        #         std = statistics.stdev(p_vals)
+        #
+        #         plt.hist(p_vals, bins=20)
+        #         plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
+        #         plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean + std))
+        #         plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
+        #         plt.xticks(np.arange(-0.5, 3.5, 0.5))
+        #         plt.legend(loc='upper right')
+        #
+        #         plt.gca().set(title="bin: " + "chr1" + " class_label: " + str(5), xlabel="p_val",
+        #                       ylabel='Frequency')
+        #
+        #     # for key, item in grouped_df:
+        #     #     global count
+        #     #     count += 1
+        #     #     if count <= 30:
+        #     #         print(grouped_df.get_group(key)["p_val"])
+        #     #         # draw yor plot
+        #     #         # fig = make_plot(bin_name,class_label=key, p_vals=grouped_df.get_group(key)["p_val"].tolist())
+        #     #
+        #     #         p_vals = grouped_df.get_group(key)["p_val"].tolist()
+        #     #         mean_check = statistics.mean(p_vals)
+        #     #         mean = grouped_df.get_group(key)["p_val"].mean()
+        #     #         std = grouped_df.get_group(key)["p_val"].median()
+        #     #         median = grouped_df.get_group(key)["p_val"].std()
+        #     #
+        #     #         # fig = plt.figure(figsize=(10, 10))
+        #     #         plt.hist(p_vals, bins=20)
+        #     #         plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
+        #     #         plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean + std))
+        #     #         plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
+        #     #         plt.axvline(median, color="r", linestyle="dashed", label='{0:.4f}'.format(median))
+        #     #         plt.xticks(np.arange(-0.5, 3.5, 0.5))
+        #     #         plt.legend(loc='upper right')
+        #     #
+        #     #         plt.gca().set(title="bin: " + bin_name + " class_label: " + str(key), xlabel="p_val",
+        #     #                       ylabel='Frequency')
+        #     #         # figs.append(fig)
+        #     #         # plt.close()
+        #         pdf.savefig()
+
+        # with PdfPages("/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot3.pdf") as pdf:
+        # global FIGS
+        # prefix = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_plot/"
+        prefix = "/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots/"
+        filelist = os.listdir("/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots")
+        if len(filelist) < 1000:
+            # with PdfPages(prefix +str(bin_name)+  +".pdf") as pdf:
+            for key, item in grouped_df:
+                print(grouped_df.get_group(key)["p_val"], key)
+                # draw yor plot
+                # fig = make_plot(bin_name,class_label=key, p_vals=grouped_df.get_group(key)["p_val"].tolist())
+                p_vals = grouped_df.get_group(key)["p_val"].tolist()
+                mean_check = statistics.mean(p_vals)
+                mean = grouped_df.get_group(key)["p_val"].mean()
+                std = grouped_df.get_group(key)["p_val"].std()
+                median = grouped_df.get_group(key)["p_val"].median()
+
+                fig = plt.figure(figsize=(10, 10))
+                plt.hist(p_vals, bins=np.arange(-3.5, 4.0, 0.05))
+                plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
+                plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean+ std))
+                plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
+                plt.axvline(median, color="r", linestyle="dashed", label='{0:.4f}'.format(median))
+                plt.xticks(np.arange(-3.5, 4.0, 0.5))
+                plt.legend(loc='upper right')
+
+                plt.gca().set(title="bin: " + bin_name + " class_label: " + str(key), xlabel="p_val",
+                              ylabel='Frequency')
+
+                plt.savefig(prefix + str(bin_name)+"--"+str(key)+".png")
+
+
+
         # combined_sum["A_count_mean"] = combined_bins.groupby(["class_label"], as_index=True).agg({"A":"mean"})["A"]
         combined_sum["A_count_mean"] = grouped_df["A"].mean()
         combined_sum["B_count_mean"] = grouped_df["B"].mean()
@@ -243,7 +368,7 @@ def bin_resample(bin_name, df: pd.DataFrame):
         combined_sum["delta_sd"] = ((grouped_df["A"].std() + grouped_df["B"].std()) / read_target) * 100
         combined_sum["p_val_mean"] = grouped_df["p_val"].mean()
         combined_sum["p_val_median"] = grouped_df["p_val"].median()
-        combined_sum["is_sig"] = 0 # new criteria of is_sig, different from Dr.Mackay's approach, this one uses median of pvals
+        combined_sum["is_sig"] = 0 #NOTE: new criteria of is_sig, different from Dr.Mackay's approach, this one uses median of pvals
         combined_sum.loc[combined_sum["p_val_median"] > (-1) * math.log10(0.05), 'is_sig'] = 1
         # print(grouped_df["is_sig"].describe())
         combined_sum["sig_pct"] = grouped_df["is_sig"].mean() * 100
@@ -362,19 +487,7 @@ def sample_each_bin(small_group1):  # TODO: or groupby?
     res_df1 = small_group1.apply(lambda x: bin_resample(x, 100))
     return res_df1
 
-def run_downsample3(clubcpg_df: pd.DataFrame,club_idx:pd.DataFrame):
-    useful_part = clubcpg_df[["bin_id", "class_label", "A", "B", "lc_sum", "V1"]]
-    bin_groups = useful_part.groupby(by="bin_id", sort=False)
-    print("arrived")
-    with Pool(cpu_count()) as p:
-        args = [(group, 100) for group in bin_groups]
-        # ret_list = p.map(bin_resample,[group for name, group in bin_groups], [100]*bin_groups.ngroups)
-        ret_list = p.starmap_async(bin_resample, args)
-    res = ret_list
-    print("finish")
-    print(type(res))
-    print(res)
-    return res
+
 
 def groupby_parallel(groupby_df: pd.core.groupby.DataFrameGroupBy,
                      func,
@@ -410,17 +523,17 @@ def run_downsample(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
     res = groupby_parallel(bin_groups, bin_resample, num_cpus=int(args.ncore))
     print("shape",res)
     res_df = club_idx.merge(res, how="right", on=["bin_id", "class_label"])
+
+    print("creating figs")
+    print("len:", len(FIGS))
+    # print(type(FIGS[0]))
+    # with PdfPages("/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot4.pdf") as pdf:
+    #     for fig in FIGS:
+    #         pdf.savefig(fig)
+
     return res_df
 
-def run_downsample4(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
-    clust = LocalCluster()
-    clt = Client(clust, set_as_default=True)
-    useful_part = clubcpg_df[["bin_id", "class_label", "A", "B", "lc_sum", "V1"]]
-    dask_useful_part = dd.from_pandas(useful_part, npartitions=2)
-    print(dask_useful_part)
-    output_df = (dask_useful_part.groupby("bin_id").apply(lambda x:bin_resample(x, 100))).compute(num_workers=1000)
 
-    return output_df
 
 # right, slow, original
 def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
@@ -543,3 +656,5 @@ if __name__ == "__main__":
         output_df.to_csv(output_folder + args.name)
         # print(output_df)
         print("time:", time.time() - start_time, "s")
+
+
