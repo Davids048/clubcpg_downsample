@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 from make_plot import make_plot
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.image as mpimg
-from fpdf import FPDF
 
 count = 0
 start_time = time.time()
