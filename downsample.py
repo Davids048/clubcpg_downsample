@@ -51,7 +51,6 @@ def fisher_on_df(combined_bins: pd.DataFrame, read_target: int):
 
 
 def bin_resample(bin_name, df: pd.DataFrame):
-    # original header: def bin_resample(df: pd.DataFrame, n: int):
     """
     resample for each bin
     :param df: a dataframe of methylation information at a bin. if there are n epialleles, there should be n rows.
@@ -118,8 +117,6 @@ def bin_resample(bin_name, df: pd.DataFrame):
             # will have all possible lables in this bin, by extracting all unique labels from df["class_labels"]
             labels = np.sort(df["class_label"].unique())
             table = pd.DataFrame(index=labels)
-            # TODO: collect distribution of labels in each row of lst_samples, put into table.
-            # for each elem (sampled labels) in lst_samples:
             for sample in lst_sampls:
                 counts = pd.Categorical(sample, categories=labels, ordered=True).value_counts()
                 table = pd.concat([table, counts], axis=1)
@@ -208,7 +205,6 @@ def bin_resample(bin_name, df: pd.DataFrame):
         combined_sum["class_label"] = labels
         combined_sum.index = labels
         grouped_df = combined_bins.groupby(["class_label"], as_index=True)
-
 
         # draw distribution of p-val for each class label in this bin_name
 
@@ -322,37 +318,44 @@ def bin_resample(bin_name, df: pd.DataFrame):
         # with PdfPages("/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot3.pdf") as pdf:
         # global FIGS
         # prefix = "/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_plot/"
-        prefix = "/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots/"
-        filelist = os.listdir("/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots")
-        if len(filelist) < 1000:
-            # with PdfPages(prefix +str(bin_name)+  +".pdf") as pdf:
-            for key, item in grouped_df:
-                print(grouped_df.get_group(key)["p_val"], key)
-                # draw yor plot
-                # fig = make_plot(bin_name,class_label=key, p_vals=grouped_df.get_group(key)["p_val"].tolist())
-                p_vals = grouped_df.get_group(key)["p_val"].tolist()
-                mean_check = statistics.mean(p_vals)
-                mean = grouped_df.get_group(key)["p_val"].mean()
-                std = grouped_df.get_group(key)["p_val"].std()
-                median = grouped_df.get_group(key)["p_val"].median()
+        # prefix = "/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots/"
+        # filelist = os.listdir("/home/u245727/anaconda3/envs/clubcpg_downsample_env/outplots")
+        # if len(filelist) < 1000:
+        #     # with PdfPages(prefix +str(bin_name)+  +".pdf") as pdf:
+        #     for key, item in grouped_df:
+        #         print(grouped_df.get_group(key)["p_val"], key)
+        #         # draw yor plot
+        #         # fig = make_plot(bin_name,class_label=key, p_vals=grouped_df.get_group(key)["p_val"].tolist())
+        #         p_vals = grouped_df.get_group(key)["p_val"].tolist()
+        #         mean_check = statistics.mean(p_vals)
+        #         mean = grouped_df.get_group(key)["p_val"].mean()
+        #         std = grouped_df.get_group(key)["p_val"].std()
+        #         median = grouped_df.get_group(key)["p_val"].median()
+        #
+        #         fig = plt.figure(figsize=(10, 10))
+        #         plt.hist(p_vals, bins=np.arange(-3.5, 4.0, 0.05))
+        #         plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
+        #         plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean+ std))
+        #         plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
+        #         plt.axvline(median, color="r", linestyle="dashed", label='{0:.4f}'.format(median))
+        #         plt.xticks(np.arange(-3.5, 4.0, 0.5))
+        #         plt.legend(loc='upper right')
+        #
+        #         plt.gca().set(title="bin: " + bin_name + " class_label: " + str(key), xlabel="p_val",
+        #                       ylabel='Frequency')
+        #
+        # #         plt.savefig(prefix + str(bin_name)+"--"+str(key)+".png")
+        #
+        # # make df distribution
+        # allP = pd.DataFrame()
+        # for key, item in grouped_df:
+        #     # print(grouped_df["p_val"].get_group(key),"\n")
+        #     row = np.array(grouped_df["p_val"].get_group(key).reset_index(drop=True)).transpose()
+        #     # row_df = pd.DataFrame(row)
+        #     allP[str(key)] = row
+        # allP.to_csv("/Users/david/p_vals/allp-" + str(bin_name)+".csv")
 
-                fig = plt.figure(figsize=(10, 10))
-                plt.hist(p_vals, bins=np.arange(-3.5, 4.0, 0.05))
-                plt.axvline(mean, color="k", linestyle="dashed", label='{0:.4f}'.format(mean))
-                plt.axvline(mean + std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean+ std))
-                plt.axvline(mean - std, color="y", linestyle="dashed", label='{0:.4f}'.format(mean - std))
-                plt.axvline(median, color="r", linestyle="dashed", label='{0:.4f}'.format(median))
-                plt.xticks(np.arange(-3.5, 4.0, 0.5))
-                plt.legend(loc='upper right')
 
-                plt.gca().set(title="bin: " + bin_name + " class_label: " + str(key), xlabel="p_val",
-                              ylabel='Frequency')
-
-                plt.savefig(prefix + str(bin_name)+"--"+str(key)+".png")
-
-
-
-        # combined_sum["A_count_mean"] = combined_bins.groupby(["class_label"], as_index=True).agg({"A":"mean"})["A"]
         combined_sum["A_count_mean"] = grouped_df["A"].mean()
         combined_sum["B_count_mean"] = grouped_df["B"].mean()
         combined_sum["A_norm_mean"] = grouped_df["A"].mean() / read_target
@@ -524,39 +527,33 @@ def run_downsample(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
     res_df = club_idx.merge(res, how="right", on=["bin_id", "class_label"])
 
     print("creating figs")
-    print("len:", len(FIGS))
-    # print(type(FIGS[0]))
-    # with PdfPages("/Users/david/Sphere_files/Downsample replicate/CluBCpG demos/output_csv/outplot4.pdf") as pdf:
-    #     for fig in FIGS:
-    #         pdf.savefig(fig)
-
     return res_df
 
 
 
 # right, slow, original
-def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
-    """
-    after preparing input df using downsample_prep, run the downsample thingy on each bin
-    :param clubcpg_df: the modified dataframe
-    :param club_idx: the idx file used to bind all outputs
-    :return: the output dataframe
-    """
-    useful_part = clubcpg_df[["bin_id", "class_label", "A", "B", "lc_sum", "V1"]]
-    # test 2 groups
-    # two_opts = ["chr1_185043700"]
-    # useful_part = useful_part[useful_part["bin_id"].isin(two_opts)]
-    # useful_idx = club_idx[["bin_id","chr","start","end","cpg_number","class_label","methylation","cpg_pattern"]]
-    # useful_idx = useful_idx[useful_idx["bin_id"].isin(two_opts)]
-    # print(useful_part)
-    # DONE: after testing, get rid of the two opts
-    bin_groups = useful_part.groupby(by="bin_id", sort=False)
-    output_df1 = bin_groups.apply(lambda x: bin_resample(x))
-    print(output_df1)
-    # print(output_df)
-    res_df = club_idx.merge(output_df1, how="right", on=["bin_id", "class_label"])
-    # res_df = useful_idx.merge(output_df, how="left", on=["bin_id", "class_label"])
-    return res_df
+# def run_downsample2(clubcpg_df: pd.DataFrame, club_idx: pd.DataFrame):
+#     """
+#     after preparing input df using downsample_prep, run the downsample thingy on each bin
+#     :param clubcpg_df: the modified dataframe
+#     :param club_idx: the idx file used to bind all outputs
+#     :return: the output dataframe
+#     """
+#     useful_part = clubcpg_df[["bin_id", "class_label", "A", "B", "lc_sum", "V1"]]
+#     # test 2 groups
+#     # two_opts = ["chr1_185043700"]
+#     # useful_part = useful_part[useful_part["bin_id"].isin(two_opts)]
+#     # useful_idx = club_idx[["bin_id","chr","start","end","cpg_number","class_label","methylation","cpg_pattern"]]
+#     # useful_idx = useful_idx[useful_idx["bin_id"].isin(two_opts)]
+#     # print(useful_part)
+#     # DONE: after testing, get rid of the two opts
+#     bin_groups = useful_part.groupby(by="bin_id", sort=False)
+#     output_df1 = bin_groups.apply(lambda x: bin_resample(x))
+#     print(output_df1)
+#     # print(output_df)
+#     res_df = club_idx.merge(output_df1, how="right", on=["bin_id", "class_label"])
+#     # res_df = useful_idx.merge(output_df, how="left", on=["bin_id", "class_label"])
+#     return res_df
 
 
 ### Tests ###
@@ -655,5 +652,4 @@ if __name__ == "__main__":
         output_df.to_csv(output_folder + args.name)
         # print(output_df)
         print("time:", time.time() - start_time, "s")
-
 
