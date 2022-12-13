@@ -59,7 +59,7 @@ You can run ``` python downsample.py --help``` to see the commands
 		```
 
 ## 4. Example for using downsampling:
-* **Scenario**: Assume we want to compare **male, neuron, p12 (12 days after birth)** data and **male,neuron,p35** data.
+* **Background**: Assume we want to compare **male, neuron, p12 (12 days after birth)** data and **male,neuron,p35** data.
 	* If what we have is clubcpg-cluster output files from an analysis of the two desired samples (i.e. a cluster output file comparing reads from **male, neuron, p12 (12 days after birth)** data and **male,neuron,p35** data
 		* Then we only need one sample, so the arguments needed is only -A
 	* If the desired samples are in two separate clubcpg-cluster output data, then we need to use 2 file mode;
